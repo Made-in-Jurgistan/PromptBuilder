@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/python-3.8%2B-yellow.svg)](https://www.python.org/downloads/)
 [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-**A comprehensive framework for generating high-quality training data for fine-tuning LLMs as coding assistants.**
+**A comprehensive framework for generating high-quality query handling training data for fine-tuning LLMs as coding assistants.**
 
 ## 📋 Table of Contents
 
