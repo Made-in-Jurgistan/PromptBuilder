@@ -110,7 +110,7 @@ examples = generator.generate_examples()
 print(f"Created {len(examples)} training examples!")
 ```
 
-## ⚙️ Settings You Can Change
+## ⚙️ Configuration
 
 You can customize how PromptBuilder works by changing these settings:
 
