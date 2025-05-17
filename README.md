@@ -62,23 +62,23 @@ The system addresses a critical challenge in LLM training: creating realistic, d
 PromptBuilder follows a pipeline architecture with these key components:
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌───────────────────┐
-│ Configuration   │───▶│ Example Generator │───▶│ Component Generator│
-└─────────────────┘    └──────────────────┘    └───────────────────┘
+┌─────────────────┐     ┌──────────────────┐       ┌───────────────────┐
+│ Configuration   │───▶│Example Generator  │───▶  │Component Generator│
+└─────────────────┘     └──────────────────┘       └───────────────────┘
                                 │                        │
                                 ▼                        │
-                      ┌──────────────────┐              │
+                      ┌──────────────────┐               │
                       │ Template Manager │◀─────────────┘
                       └──────────────────┘
                                 │
                                 ▼
-                      ┌──────────────────┐    ┌───────────────────┐
+                      ┌──────────────────┐     ┌───────────────────┐
                       │ Response Generator│───▶│ Example Validator │
-                      └──────────────────┘    └───────────────────┘
+                      └──────────────────┘     └───────────────────┘
                                 │                        │
                                 ▼                        ▼
                       ┌──────────────────┐    ┌───────────────────┐
-                      │ Output Formatter │    │ Metrics Collection │
+                      │ Output Formatter │    │ Metrics Collection│
                       └──────────────────┘    └───────────────────┘
 ```
 
