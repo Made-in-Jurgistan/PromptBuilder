@@ -1,205 +1,358 @@
 # 🚀 PromptBuilder
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Python](https://img.shields.io/badge/python-3.8+-yellow.svg)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/Made-in-Jurgistan/promptbuilder/releases)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.8%2B-yellow.svg)](https://www.python.org/downloads/)
+[![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-**A sophisticated query handling training data generator for fine-tuning LLMs as coding assistants**
+**A comprehensive framework for generating high-quality training data for fine-tuning LLMs as coding assistants.**
 
 ## 📋 Table of Contents
 
-- [Overview](#-overview)
-- [Key Features](#-key-features)
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Configuration](#-configuration)
-- [Command Line Interface](#-command-line-interface)
-- [Usage Examples](#-usage-examples)
-- [Architecture](#-architecture)
-- [LLM Training Applications](#-llm-training-applications)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+- [Installation](#installation)
+- [Usage Guide](#usage-guide)
+  - [CLI Interface](#cli-interface)
+  - [Python API](#python-api)
+  - [Docker Deployment](#docker-deployment)
+- [Configuration Reference](#configuration-reference)
+- [Extending PromptBuilder](#extending-promptbuilder)
+- [Performance Considerations](#performance-considerations)
+- [API Reference](#api-reference)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## 🔍 Overview
 
-**PromptBuilder** provides a sophisticated system for generating high-quality training data for fine-tuning Large Language Models (LLMs) on query handling and execution tasks as coding assistants. It combines multiple reasoning frameworks, domain-specific knowledge, and quality assurance mechanisms to create training examples that promote comprehensive, error-resistant responses.
+PromptBuilder is a sophisticated framework designed to generate diverse, high-quality training examples for fine-tuning Large Language Models (LLMs) for code-related tasks. By combining advanced reasoning frameworks, domain-specific knowledge representation, and comprehensive quality assurance mechanisms, it produces training data that helps LLMs develop robust, accurate coding assistance capabilities.
 
-This system enables data scientists and ML engineers to generate diverse, realistic training examples across multiple programming domains, languages, and frameworks with minimal effort. The generated examples help LLMs learn how to:
-
-- Explain complex technical concepts clearly
-- Debug problematic code with systematic reasoning
-- Solve coding problems step-by-step
-- Optimize performance bottlenecks
-- Respond to strategic decision questions
-- Handle vague queries with clarification
-- And much more!
+The system addresses a critical challenge in LLM training: creating realistic, diverse examples that capture the nuances of different programming domains, reasoning approaches, and difficulty levels. This enables fine-tuned models to provide more accurate, contextually appropriate coding assistance.
 
 ## ✨ Key Features
 
-- **🧩 Comprehensive reasoning frameworks** for different query types
-- **🔬 Domain-specific code and technology knowledge** integration
-- **📊 Multi-level difficulty scaling** from beginner to expert
-- **💬 Dialogue simulation** with clarification and information gathering
-- **📝 Production-quality code examples** with proper documentation and error handling
-- **🔍 Advanced query understanding** with misinterpretation prevention
-- **🧠 Detailed internal reasoning process** documentation
-- **🛠️ Extensible architecture** for adding new domains and query types
-- **📈 Comprehensive validation framework** to ensure quality
+- **Multi-framework Reasoning**: Implements distinct reasoning approaches for different query types:
+  - Developer Clarification Model for concept explanations
+  - Chain of Thought Framework for systematic problem solving
+  - Hybrid Decision-Making Framework for evaluating options
+
+- **Comprehensive Domain Coverage**:
+  - Multiple programming languages (Python, JavaScript, TypeScript, R)
+  - Domain-specific libraries and frameworks
+  - Language-appropriate code snippets and error patterns
+
+- **Granular Difficulty Scaling**:
+  - Basic: Entry-level explanations and problems
+  - Intermediate: Domain-specific applications with moderate complexity
+  - Advanced: Production-level challenges with multiple considerations
+
+- **Quality Assurance Pipeline**:
+  - Automatic validation of generated examples
+  - Configurable quality thresholds and criteria
+  - Metrics collection for training data quality
+
+- **Modular, Extensible Architecture**:
+  - Clean separation between components
+  - Registry pattern for frameworks and domains
+  - Plugin architecture for adding new reasoning patterns
+
+## 🏗️ Architecture
+
+PromptBuilder follows a pipeline architecture with these key components:
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌───────────────────┐
+│ Configuration   │───▶│ Example Generator │───▶│ Component Generator│
+└─────────────────┘    └──────────────────┘    └───────────────────┘
+                                │                        │
+                                ▼                        │
+                      ┌──────────────────┐              │
+                      │ Template Manager │◀─────────────┘
+                      └──────────────────┘
+                                │
+                                ▼
+                      ┌──────────────────┐    ┌───────────────────┐
+                      │ Response Generator│───▶│ Example Validator │
+                      └──────────────────┘    └───────────────────┘
+                                │                        │
+                                ▼                        ▼
+                      ┌──────────────────┐    ┌───────────────────┐
+                      │ Output Formatter │    │ Metrics Collection │
+                      └──────────────────┘    └───────────────────┘
+```
+
+Each component is designed with clear interfaces and separation of concerns, enabling:
+1. Independent testing and validation
+2. Extension with new query types and frameworks
+3. Customization of generation parameters
+4. Structured patterns for response creation
 
 ## 📥 Installation
 
-### Prerequisites
-
-- Python 3.8 or higher
-- pip package manager
-
-### Install from PyPI
+### From PyPI (coming soon)
 
 ```bash
 pip install promptbuilder
 ```
 
-### Install from source
+### From Source
 
 ```bash
+# Clone the repository
 git clone https://github.com/Made-in-Jurgistan/promptbuilder.git
 cd promptbuilder
 
-# Install it
-pip install -e .
+# Create a virtual environment
+python -m venv venv
+
+# Activate the environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+
+# Install dependencies and development version
+pip install -e ".[dev]"  # Include development dependencies
 ```
 
-## 🚀 Quick Start
+### Requirements
+
+- **Python**: 3.8 or higher
+- **Dependencies**: See `requirements.txt` for production dependencies
+- **Development**: Additional dependencies in `requirements-dev.txt`
+
+## 📚 Usage Guide
+
+### CLI Interface
+
+The command-line interface provides comprehensive controls for generating, validating, and analyzing examples:
 
 ```bash
-# Should show the version number
-python -m promptbuilder.main --version
+# Generate 50 examples with specific parameters
+promptbuilder generate \
+  --examples 50 \
+  --domains web_development,data_science \
+  --difficulties basic,intermediate \
+  --output training_data.jsonl \
+  --validate \
+  --seed 42
+
+# Validate existing examples
+promptbuilder validate \
+  --input examples.jsonl \
+  --threshold 0.85 \
+  --output validated_examples.jsonl
+
+# Display domain information
+promptbuilder domains --verbose
+
+# Get framework information
+promptbuilder frameworks --verbose
+
+# Show available options
+promptbuilder --help
 ```
 
-## 🚀 How to Use
+Full CLI reference:
 
-### Simple Command Line
+```
+Usage: promptbuilder [OPTIONS] [COMMAND]
 
-```bash
-# Create 5 examples and save them to a file
-python -m promptbuilder.main generate --examples 5 --output examples.jsonl
+Commands:
+  generate     Generate training examples
+  validate     Validate existing examples
+  stats        Display statistics for generated examples
+  domains      List available domains
+  frameworks   List available reasoning frameworks
+  version      Display version information
 
-# Answer questions about settings with a wizard
-python -m promptbuilder.main
+Options:
+  --config PATH                Path to configuration file
+  --output PATH                Output file path [default: training_data.jsonl]
+  --format {jsonl,csv,md}      Output format [default: jsonl]
+  --examples INT               Examples per category [default: 5]
+  --domains TEXT               Comma-separated domains to include
+  --difficulties TEXT          Comma-separated difficulty levels
+  --query-types TEXT           Comma-separated query types
+  --seed INT                   Random seed for reproducibility [default: 42]
+  --validate / --no-validate   Validate generated examples [default: False]
+  --parallel / --no-parallel   Use parallel processing [default: False]
+  --verbose / --no-verbose     Enable verbose output [default: False]
+  --log-file PATH              Log file path [default: None]
+  --help                       Show this message and exit
 ```
 
-### Using in Your Python Code
+### Python API
+
+The Python API provides programmatic access to all functionality with fine-grained control:
 
 ```python
 from promptbuilder.core.example_generator import ExampleGenerator
 from promptbuilder.config import Config
+from promptbuilder.core.example_validator import ExampleValidator
 
-# Set up your preferences
+# Create configuration with custom settings
 config = Config(
-    num_examples_per_category=2,  # How many examples to create
-    output_file="examples.jsonl"   # Where to save them
+    num_examples_per_category=10,
+    selected_domains=["web_development", "data_science"],
+    difficulty_levels=["intermediate", "advanced"],
+    query_types=["conceptExplanation", "debugging", "optimization"],
+    output_format="jsonl",
+    validate_output=True,
+    use_parallel_processing=True
 )
 
-# Create the generator
+# Initialize generator
 generator = ExampleGenerator(config)
 
-# Make the examples
+# Generate examples
 examples = generator.generate_examples()
+print(f"Generated {len(examples)} examples")
 
-# See what you got
-print(f"Created {len(examples)} training examples!")
+# Validate examples with custom settings
+validator = ExampleValidator(
+    supported_languages=generator.supported_languages,
+    supported_technologies=generator.supported_technologies,
+    config={"threshold": 0.85, "strict": True}
+)
+valid_examples, metrics = validator.validate_examples(examples)
+print(f"Validation passed: {len(valid_examples)}/{len(examples)}")
+
+# Export to file
+with open("high_quality_examples.jsonl", "w") as f:
+    for example in valid_examples:
+        f.write(example.to_json() + "\n")
 ```
 
-## ⚙️ Configuration
+### 🐳 Docker Deployment
 
-You can customize how PromptBuilder works by changing these settings:
+For containerized environments, use the provided Docker configuration:
 
-| Setting | What It Does | Default Value |
-|---------|--------------|---------------|
-| `num_examples_per_category` | How many examples to create for each type | 5 |
-| `difficulty_levels` | Difficulty of the examples | ["basic", "intermediate", "advanced"] |
-| `query_types` | Types of questions to generate | All types |
-| `output_format` | File format to save examples | "jsonl" |
-| `validate_output` | Check examples for quality | False |
-| `use_parallel_processing` | Run faster using multiple cores | False |
-| `selected_domains` | Which programming areas to include | [] (all domains) |
+```bash
+# Build the container image
+docker build -t promptbuilder:2.0.0 .
 
-### Sample Settings File
+# Run with volume mount for output
+docker run -v "$(pwd)/output:/data" promptbuilder:2.0.0
 
-You can save your settings in a JSON file:
+# With custom configuration (on Windows)
+docker run -v "%cd%\output:/data" -v "%cd%\config.json:/app/config.json" \
+  promptbuilder:2.0.0 generate --config /app/config.json --examples 100
+```
+
+## ⚙️ Configuration Reference
+
+Configuration can be provided via JSON file or programmatically. Example JSON configuration:
 
 ```json
 {
   "num_examples_per_category": 10,
-  "difficulty_levels": ["basic", "intermediate"],
-  "query_types": ["conceptExplanation", "debugging", "problemSolving"],
+  "difficulty_levels": ["basic", "intermediate", "advanced"],
+  "query_types": ["conceptExplanation", "debugging", "optimization"],
   "output_format": "jsonl",
-  "output_file": "training_examples.jsonl",
+  "output_file": "examples.jsonl",
   "validate_output": true,
+  "validation_threshold": 0.85,
   "use_parallel_processing": true,
-  "selected_domains": ["web_development", "data_science"]
+  "selected_domains": ["web_development", "data_science"],
+  "random_seed": 42,
+  "logging": {
+    "level": "INFO",
+    "file": "generation.log"
+  }
 }
 ```
 
-## 📝 Command Examples
+## 🧩 Extending PromptBuilder
 
-### Create Examples About Web Development and Data Science
+PromptBuilder's modular design allows for straightforward extensions:
 
-```bash
-python -m promptbuilder.main generate --domains web_development,data_science --examples 10
+### Adding New Domains
+
+Create a domain module in `promptbuilder/domains/` following the template pattern:
+
+```python
+# promptbuilder/domains/blockchain.py
+"""Domain knowledge for blockchain development."""
+
+DOMAIN_METADATA = {
+    "name": "blockchain",
+    "description": "Blockchain development and smart contracts",
+    "languages": ["Solidity", "Rust", "JavaScript"],
+    "technologies": [
+        {
+            "name": "Ethereum",
+            "description": "Smart contract platform with EVM",
+            "version_range": ["1.0.0", "2.0.0"]
+        },
+        # Additional technologies...
+    ],
+    "concepts": [
+        {
+            "name": "Gas optimization",
+            "difficulty": "advanced",
+            "related": ["transaction fees", "computational efficiency"]
+        },
+        # Additional concepts...
+    ]
+}
 ```
 
-### Create and Check Examples for Quality
+### Creating Custom Reasoning Frameworks
 
-```bash
-python -m promptbuilder.main generate --validate --output examples.jsonl
+Implement a new framework by extending the base classes:
+
+```python
+from promptbuilder.core.reasoning import Framework, ReasoningStep
+
+class MyCustomFramework(Framework):
+    """Custom reasoning framework for specialized domains."""
+    
+    name = "Custom Domain-Specific Reasoning"
+    
+    def generate_reasoning_steps(self, query_info):
+        """Generate reasoning steps for this framework."""
+        return [
+            ReasoningStep(
+                title="Domain Analysis",
+                content=f"Analyzing the {query_info.domain} domain context..."
+            ),
+            # Additional steps...
+        ]
 ```
 
-### Check Examples You Already Created
+## ⚡ Performance Considerations
 
-```bash
-python -m promptbuilder.main validate --input examples.jsonl --output validated_examples.jsonl
-```
+- **Memory Usage**: Example generation with large datasets may require 4GB+ RAM
+- **Parallelization**: Enable with `--parallel` for multi-core systems (~2-4x speedup)
+- **Storage**: Generated datasets typically require ~1MB per 100 examples
+- **Processing Time**: ~5-10 examples per second on modern hardware
 
-### See What Programming Topics Are Available
+## 📘 API Reference
 
-```bash
-python -m promptbuilder.main domains --verbose
-```
+See the [API Documentation](https://promptbuilder.readthedocs.io/) for detailed reference on all public APIs.
 
-## 🏗️ How It Works
+Key modules:
 
-PromptBuilder works in a series of steps:
-
-1. **Choose Settings**: Decide what kinds of examples to create
-2. **Generate Questions**: Create realistic coding questions
-3. **Create Responses**: Generate high-quality answers
-4. **Quality Check**: Make sure the examples are good
-5. **Save Results**: Store examples in your chosen format
-
-The main parts that make it work are:
-
-- **ExampleGenerator**: Creates the training examples
-- **ComponentGenerator**: Makes the questions
-- **FrameworkRegistry**: Picks the right answer style
-- **ResponseGenerator**: Creates the answers
-- **ExampleValidator**: Checks for quality
-- **TemplateManager**: Handles question templates
+- **promptbuilder.core.example_generator**: Primary interface for example generation
+- **promptbuilder.core.example_validator**: Validation and quality assessment
+- **promptbuilder.core.query_components**: Data structures for query representation
+- **promptbuilder.config**: Configuration management
 
 ## 👥 Contributing
 
-We welcome contributions! Here's how:
+We welcome contributions to PromptBuilder! Please see our [Contribution Guidelines](CONTRIBUTING.md) for details on:
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- Code standards and style
+- Testing requirements
+- PR process
+- Feature request process
 
-## 📄 License
+## 📜 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-Made with ❤️ by Made in Jurgistan 
+Made with ❤️ by Made in Jurgistan
