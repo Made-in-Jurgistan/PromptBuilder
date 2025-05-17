@@ -342,12 +342,7 @@ Key modules:
 
 ## 👥 Contributing
 
-We welcome contributions to PromptBuilder! Please see our [Contribution Guidelines](CONTRIBUTING.md) for details on:
-
-- Code standards and style
-- Testing requirements
-- PR process
-- Feature request process
+We welcome contributions to PromptBuilder! 
 
 ## 📜 License
 
