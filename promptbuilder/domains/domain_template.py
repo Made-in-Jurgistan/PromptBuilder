@@ -1,21 +1,21 @@
 """
-Expanded Standardized Domain Module Template for PromptBuilder.
+Standardized Domain Module Template for PromptBuilder.
 
-This module defines the enhanced structure and requirements for domain knowledge mapping
+This module defines the structure and requirements for domain knowledge mapping
 within the PromptBuilder system. All domain modules MUST follow this template precisely 
-to ensure standardization while providing more comprehensive coverage of each domain area.
+to ensure standardization while providing comprehensive coverage of each domain area.
 
 REQUIREMENTS:
 1. All sections are mandatory and must appear in the exact order specified
 2. Section names must be exactly as specified (no variations)
-3. Each section must contain EXACTLY the number of entries specified (increased for comprehensiveness)
+3. Each section must contain EXACTLY the number of entries specified
 4. All fields marked as required must be present with appropriate values
 5. Naming conventions and formatting must be consistent across all domains
 6. Content quality standards must be maintained throughout
 7. Descriptions must be complete sentences with proper punctuation
 8. All lengths and counts must be strictly adhered to
 
-This template serves as the definitive enhanced standard for all domain modules.
+This template serves as the definitive standard for all domain modules.
 
 Author: Made in Jurgistan
 Version: 2.0.0
@@ -26,10 +26,10 @@ from typing import Dict, Any, List
 
 def get_domain_mapping() -> Dict[str, Any]:
     """
-    Get domain technology mapping with enhanced comprehensiveness.
+    Get domain technology mapping.
     
     Returns:
-        Dict[str, Any]: Domain mapping with standardized comprehensive information
+        Dict[str, Any]: Domain mapping with standardized information
     """
     return {
         # DOMAIN METADATA (REQUIRED)
