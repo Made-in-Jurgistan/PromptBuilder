@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-yellow.svg)
 
-> **A sophisticated training data generator for fine-tuning LLMs as coding assistants**
+**A sophisticated query handling training data generator for fine-tuning LLMs as coding assistants**
 
 ## 📋 Table of Contents
 
