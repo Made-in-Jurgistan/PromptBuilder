@@ -18,6 +18,7 @@ License: MIT
 
 import logging
 from typing import Dict, List, Any, Optional
+import random
 
 from promptbuilder.core.query_components import QueryInfo, FrameworkType, QueryType
 from promptbuilder.core.framework_registry import FrameworkRegistry
@@ -59,8 +60,9 @@ class ResponseGenerator:
             str: Generated internal reasoning
         """
         framework = query_info.framework
+        framework_val = framework.value if framework else 'None'
         self.logger.debug("Generating reasoning for %s using %s", 
-                         query_info.query_type.value, framework.value)
+                         query_info.query_type.value, framework_val)
         
         try:
             # Map framework types to their respective reasoning generation methods
@@ -71,7 +73,7 @@ class ResponseGenerator:
             }
             
             # Generate reasoning using the appropriate method or use a default
-            if framework in methods:
+            if framework is not None and framework in methods:
                 return methods[framework](query_info)
             else:
                 return f"Default reasoning for {query_info.query_type.value} query at {query_info.difficulty.value} difficulty level."
@@ -654,7 +656,6 @@ class ResponseGenerator:
         )
         
         # Randomly choose recommendation
-        import random
         if random.choice([True, False]):
             response += (
                 f"**{option_a}** would be the better choice because:\n\n"
@@ -943,10 +944,11 @@ class ResponseGenerator:
         elif quality.lower() in ['maintainability', 'readability', 'clean']:
             response += (
                 "### Maintainability Considerations\n\n"
-                "1. **Modularization**: Break down larger functions into smaller, focused ones\n"
-                "2. **Documentation**: Add comments explaining complex logic or business rules\n"
-                "3. **Consistency**: Standardize naming conventions and coding style\n"
-                "4. **Test coverage**: Ensure adequate test coverage for critical functionality\n\n"
+                "1. **Modularize code**: Break down large functions or classes into smaller, reusable components\n"
+                "2. **Consistent naming**: Use clear and consistent naming conventions for variables and functions\n"
+                "3. **Code comments**: Add comments and documentation to explain complex or non-obvious parts of the code\n"
+                "4. **Error handling**: Ensure errors are handled gracefully and logged appropriately\n"
+                "5. **Testing**: Write tests to cover critical functionality and edge cases\n\n"
                 
                 "### Specific Suggestions\n\n"
                 "- Extract the complex logic into separate, well-named functions\n"
@@ -954,17 +956,17 @@ class ResponseGenerator:
                 "- Refactor duplicate code into reusable functions"
             )
         else:
+            # Generic maintainability suggestions
             response += (
-                "### General Improvements\n\n"
-                "1. **Error handling**: Enhance error handling for better resilience\n"
-                "2. **Code organization**: Improve structure for better readability\n"
-                "3. **Documentation**: Add comments for complex sections\n"
-                "4. **Testing**: Ensure adequate test coverage\n\n"
-                
+                "### Maintainability Considerations\n\n"
+                "1. **Refactor for clarity**: Simplify complex logic and improve readability\n"
+                "2. **Add documentation**: Include comments and docstrings for maintainability\n"
+                "3. **Standardize style**: Use consistent naming and formatting\n"
+                "4. **Increase test coverage**: Add tests for critical paths and edge cases\n\n"
                 "### Specific Suggestions\n\n"
-                "- Add more specific exception handling\n"
-                "- Break down larger methods into smaller, focused ones\n"
-                "- Add documentation explaining the purpose and usage"
+                "- Modularize code for better separation of concerns\n"
+                "- Remove dead or duplicate code\n"
+                "- Use descriptive variable and function names\n"
             )
         
         response += (
@@ -1201,69 +1203,50 @@ class ResponseGenerator:
 
 # Utility functions for generating realistic content variations
 def random_performance(option):
-    import random
-    performances = [
-        "excellent performance for most use cases",
-        "good performance with some optimization required",
-        "strong performance in typical scenarios",
-        "variable performance depending on implementation",
-        "superior performance for specific workloads"
-    ]
-    return random.choice(performances)
+    return random.choice([
+        f"higher throughput for certain workloads",
+        f"lower latency in typical scenarios",
+        f"better resource utilization",
+        f"scalable performance under load"
+    ])
 
 def random_maintenance(option):
-    import random
-    maintenance = [
-        "minimal maintenance overhead",
-        "moderate maintenance with regular updates",
-        "standard maintenance comparable to alternatives",
-        "careful attention to updates and dependencies",
-        "ongoing maintenance for security and features"
-    ]
-    return random.choice(maintenance)
+    return random.choice([
+        "regular updates and patching",
+        "minimal ongoing maintenance",
+        "active community support",
+        "requires specialized expertise"
+    ])
 
 def random_ecosystem(option):
-    import random
-    ecosystems = [
-        "a robust ecosystem of plugins and extensions",
-        "a growing community with good library support",
-        "an established ecosystem with enterprise adoption",
-        "a specialized ecosystem focused on core functionality",
-        "a comprehensive ecosystem covering most needs"
-    ]
-    return random.choice(ecosystems)
+    return random.choice([
+        "a rich set of libraries and tools",
+        "strong integration with popular platforms",
+        "limited but growing ecosystem",
+        "extensive documentation and tutorials"
+    ])
 
 def random_learning(option):
-    import random
-    learning = [
-        "has a gentle learning curve for beginners",
-        "requires moderate effort to learn effectively",
-        "has an approachable learning path with good documentation",
-        "demands deeper technical understanding",
-        "balances ease of entry with advanced capabilities"
-    ]
-    return random.choice(learning)
+    return random.choice([
+        "easy to learn for new developers",
+        "a moderate learning curve",
+        "steep learning curve for advanced features",
+        "well-documented onboarding resources"
+    ])
 
 def random_future(option):
-    import random
-    futures = [
-        "Shows strong momentum and ongoing development",
-        "Has a stable roadmap with regular updates",
-        "Demonstrates commitment to backward compatibility",
-        "Continues to evolve with industry trends",
-        "Maintains a balance of stability and innovation"
-    ]
-    return random.choice(futures)
+    return random.choice([
+        "shows strong long-term viability",
+        "is rapidly evolving with new features",
+        "faces some uncertainty in future support",
+        "is expected to remain relevant for years"
+    ])
 
 def random_strength(option):
-    import random
-    strengths = [
-        "performance optimization",
-        "developer productivity",
-        "code maintainability",
+    return random.choice([
+        "performance",
         "scalability",
-        "integration capabilities",
         "community support",
-        "documentation quality"
-    ]
-    return random.choice(strengths)
+        "ease of integration",
+        "security features"
+    ])

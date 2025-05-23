@@ -105,3 +105,6 @@ def get_domain_mapping() -> Dict[str, Dict[str, Any]]:
             logger.error(f"Error getting mapping for domain {domain_name}: {e}")
     
     return result
+
+from .ai_ml_domain import get_ai_ml_domain
+from .ai_ml_examples import ai_ml_code_examples

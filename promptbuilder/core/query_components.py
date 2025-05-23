@@ -130,29 +130,6 @@ class QueryType(str, Enum):
     BEST_PRACTICES = "bestPractices"
     CODE_REVIEW = "codeReview"
 
-    # Map of aliases for flexibility in input parsing
-    _ALIASES: ClassVar[Dict[str, str]] = {
-        "concept": "conceptExplanation",
-        "explain": "conceptExplanation",
-        "solve": "problemSolving",
-        "problem": "problemSolving",
-        "decision": "strategicDecisions",
-        "strategy": "strategicDecisions",
-        "vague": "vagueQueries",
-        "implement": "implementationRequests",
-        "create": "implementationRequests",
-        "debug": "debugging",
-        "fix": "debugging",
-        "optimize": "optimization",
-        "improve": "optimization",
-        "recommend": "recommendation",
-        "suggest": "recommendation",
-        "best practice": "bestPractices",
-        "practices": "bestPractices",
-        "review": "codeReview",
-        "analyze": "codeReview"
-    }
-
     def __str__(self) -> str:
         """String representation of the query type."""
         return self.value
@@ -177,9 +154,9 @@ class QueryType(str, Enum):
             if query_type.value.lower() == value_lower:
                 return query_type
                 
-        # Check aliases
-        if value_lower in cls._ALIASES:
-            alias_value = cls._ALIASES[value_lower]
+        # Check aliases (now global)
+        if value_lower in QueryType_ALIASES:
+            alias_value = QueryType_ALIASES[value_lower]
             return cls(alias_value)
             
         # Provide helpful error message with valid options
@@ -325,15 +302,6 @@ class OutputFormat(str, Enum):
     JSON = "json"
     YAML = "yaml"
 
-    # Map of content types for HTTP responses
-    CONTENT_TYPES: ClassVar[Dict[str, str]] = {
-        "jsonl": "application/jsonl",
-        "csv": "text/csv",
-        "md": "text/markdown",
-        "json": "application/json",
-        "yaml": "application/yaml"
-    }
-
     def __str__(self) -> str:
         """String representation of the output format."""
         return self.value
@@ -404,7 +372,7 @@ class OutputFormat(str, Enum):
         Returns:
             str: MIME content type
         """
-        return self.CONTENT_TYPES.get(self.value, "text/plain")
+        return OutputFormat_CONTENT_TYPES.get(self.value, "text/plain")
 
 
 @dataclass
@@ -878,6 +846,60 @@ class QueryInfo:
             'query': self.query,
             'dialogue_turns': self.dialogue_turns
         }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'QueryInfo':
+        """Create a QueryInfo from a dictionary."""
+        if not isinstance(data, dict):
+            raise ValueError(f"QueryInfo data must be a dictionary, got {type(data)}")
+
+        # Handle both legacy and new keys
+        query_type_value = data.get("query_type") or data.get("queryType") or QueryType.CONCEPT_EXPLANATION.value
+        difficulty_value = data.get("difficulty") or DifficultyLevel.BASIC.value
+        framework_value = data.get("framework") or None
+        components_data = data.get("components", {})
+        query = data.get("query", "")
+        dialogue_turns = data.get("dialogue_turns") or data.get("dialogueTurns") or []
+
+        # Convert string values to enums
+        query_type = QueryType.safe_from_str(query_type_value, QueryType.CONCEPT_EXPLANATION)
+        difficulty = DifficultyLevel.safe_from_str(difficulty_value, DifficultyLevel.BASIC)
+        framework = None
+        if framework_value is not None:
+            framework = FrameworkType.safe_from_str(framework_value, FrameworkType.DEVELOPER_CLARIFICATION)
+
+        components = (
+            components_data if isinstance(components_data, QueryComponents)
+            else QueryComponents.from_dict(components_data)
+        )
+
+        return cls(
+            query_type=query_type,
+            difficulty=difficulty,
+            components=components,
+            framework=framework,
+            query=query,
+            dialogue_turns=dialogue_turns
+        )
+    
+    def validate(self) -> List[str]:
+        """Validate the QueryInfo for completeness and consistency.
+        
+        Returns:
+            List[str]: List of validation issues, empty if valid
+        """
+        issues = []
+        # Validate query type and difficulty
+        if not isinstance(self.query_type, QueryType):
+            issues.append("query_type must be a QueryType enum value")
+        if not isinstance(self.difficulty, DifficultyLevel):
+            issues.append("difficulty must be a DifficultyLevel enum value")
+        # Validate components
+        if not isinstance(self.components, QueryComponents):
+            issues.append("components must be a QueryComponents instance")
+        else:
+            issues.extend(self.components.validate_for_query_type(self.query_type))
+        return issues
 
 
 @dataclass
@@ -978,7 +1000,7 @@ class Example:
                 "difficulty": self.query_info.difficulty.value,
                 "queryType": self.query_info.query_type.value,
                 "components": self.query_info.components.to_dict(),
-                "framework": self.query_info.framework.value,
+                "framework": self.query_info.framework.value if self.query_info.framework else None,
                 "dialogueTurns": self.query_info.dialogue_turns
             }
         }
@@ -1093,32 +1115,62 @@ class Example:
             List[str]: List of validation issues, empty if valid
         """
         issues = []
-        
         # Validate query info
-        query_info_issues = self.query_info.validate()
-        issues.extend([f"Query info issue: {issue}" for issue in query_info_issues])
-        
+        if hasattr(self.query_info, 'validate'):
+            query_info_issues = self.query_info.validate()
+            issues.extend([f"Query info issue: {issue}" for issue in query_info_issues])
+        else:
+            issues.append("Query info does not have a validate() method")
         # Validate internal reasoning
         if not self.internal_reasoning:
             issues.append("Internal reasoning cannot be empty")
         elif len(self.internal_reasoning.split()) < 50:
             issues.append("Internal reasoning is too short (< 50 words)")
-            
         # Validate external response
         if not self.external_response:
             issues.append("External response cannot be empty")
         elif len(self.external_response.split()) < 50:
             issues.append("External response is too short (< 50 words)")
-            
         # Check for placeholder content
         if "placeholder" in self.internal_reasoning.lower():
             issues.append("Internal reasoning contains placeholder content")
-            
         if "placeholder" in self.external_response.lower():
             issues.append("External response contains placeholder content")
-            
         return issues
 
+
+# Map of aliases for QueryType (outside enum to avoid type annotation error)
+QueryType_ALIASES: Dict[str, str] = {
+    "concept": "conceptExplanation",
+    "explain": "conceptExplanation",
+    "solve": "problemSolving",
+    "problem": "problemSolving",
+    "decision": "strategicDecisions",
+    "strategy": "strategicDecisions",
+    "vague": "vagueQueries",
+    "implement": "implementationRequests",
+    "create": "implementationRequests",
+    "debug": "debugging",
+    "fix": "debugging",
+    "optimize": "optimization",
+    "improve": "optimization",
+    "recommend": "recommendation",
+    "suggest": "recommendation",
+    "best practice": "bestPractices",
+    "practices": "bestPractices",
+    "review": "codeReview",
+    "analyze": "codeReview"
+}
+
+# Map of content types for HTTP responses
+# (moved out of enum body to avoid type annotation error)
+OutputFormat_CONTENT_TYPES: Dict[str, str] = {
+    "jsonl": "application/jsonl",
+    "csv": "text/csv",
+    "md": "text/markdown",
+    "json": "application/json",
+    "yaml": "application/yaml"
+}
 
 # Helper function to access dataclass fields
 def fields(cls):

@@ -74,7 +74,7 @@ try:
     )
     from promptbuilder.core.example_generator import ExampleGenerator
     from promptbuilder.core.example_validator import ExampleValidator
-    from promptbuilder.config import Config, validate_config, load_config
+    from promptbuilder.config import Config, validate_config
     from promptbuilder.utils.logging import setup_logging, get_logger, log_dict
     from promptbuilder.domains import get_domain_mapping, get_available_domains
 except ImportError as e:
@@ -263,7 +263,6 @@ def _add_generate_arguments(parser: argparse.ArgumentParser) -> None:
         default="training_data.jsonl",
         help="Output file path for generated examples"
     )
-    
     parser.add_argument(
         "--format", "-f",
         type=str, 

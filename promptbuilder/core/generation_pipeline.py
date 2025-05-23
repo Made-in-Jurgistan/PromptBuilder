@@ -143,7 +143,10 @@ class GenerationPipeline:
         """
         start_time = time.time()
         examples = []
-        
+        self.stats = self._reset_statistics()
+        self.stats['errors'] = {}
+        self.config = getattr(self, 'config', Config())
+
         # Set default query types if not provided
         if not query_types:
             query_types = [
@@ -152,7 +155,6 @@ class GenerationPipeline:
                 QueryType.IMPLEMENTATION_REQUESTS,
                 QueryType.OPTIMIZATION
             ]
-        
         # Set default difficulty levels if not provided
         if not difficulties:
             difficulties = [
@@ -160,40 +162,22 @@ class GenerationPipeline:
                 DifficultyLevel.INTERMEDIATE,
                 DifficultyLevel.ADVANCED
             ]
-        
         self.logger.info("Starting training example generation for coding assistant LLM")
-        
-        # Generate examples sequentially for each combination
         total_examples = count * len(query_types) * len(difficulties)
         example_count = 0
-        
-        # Generate examples for each query type and difficulty level
         for qt_idx, query_type in enumerate(query_types):
             for diff_idx, difficulty in enumerate(difficulties):
-                batch_count = min(count, 2)  # Limit batch size to 2 for now
-                gen_idx = qt_idx * len(difficulties) + diff_idx + 1
-                self.logger.info("Generating for %s at %s [%d/%d]", 
-                               query_type.value, difficulty.value, gen_idx, 
-                               len(query_types) * len(difficulties))
-                
-                # Generate examples
-                batch_examples = []
-                for _ in range(batch_count):
-                    example = self._generate_single_example(query_type, difficulty, domain=domains[0] if domains else None)
-                    if example:
-                        batch_examples.append(example)
-                        example_count += 1
-                
-                examples.extend(batch_examples)
-                
-                # Log progress
-                elapsed = time.time() - start_time
-                remaining = (elapsed / example_count) * (total_examples - example_count) if example_count > 0 else 0
-                self.logger.info("Generated %d examples in %.2fs", len(batch_examples), elapsed)
-        
+                self._update_stats_structure(query_type, difficulty)
+                framework_type = self.framework_registry.select_framework(query_type)
+                if parallel:
+                    batch = self._generate_examples_in_parallel(query_type, difficulty, framework_type)
+                else:
+                    batch = self._generate_examples_sequentially(query_type, difficulty, framework_type)
+                examples.extend([asdict(ex) if hasattr(ex, 'to_dict') else ex for ex in batch])
+                self._update_batch_stats(query_type, difficulty, batch, time.time() - start_time)
+        self._finalize_statistics(examples, start_time)
         self.logger.info("Generation complete: %d examples in %.2fs", len(examples), time.time() - start_time)
-        
-        return examples
+        return self._post_process_examples(examples)
     
     def _update_stats_structure(self, query_type: QueryType, difficulty: DifficultyLevel) -> None:
         """Initialize statistics structure for a query type and difficulty combination.
@@ -203,14 +187,12 @@ class GenerationPipeline:
             difficulty: Difficulty level being generated
         """
         for key, val in [("by_query_type", query_type.value), ("by_difficulty", difficulty.value)]:
+            if key not in self.stats:
+                self.stats[key] = {}
             if val not in self.stats[key]:
                 self.stats[key][val] = {"count": 0, "generation_time": 0}
-    
-    def _update_batch_stats(self, 
-                           qt: QueryType, 
-                           diff: DifficultyLevel, 
-                           batch: List[Example], 
-                           time_taken: float) -> None:
+
+    def _update_batch_stats(self, qt: QueryType, diff: DifficultyLevel, batch: List[Example], time_taken: float) -> None:
         """Update statistics after a batch generation.
         
         Args:
@@ -225,32 +207,20 @@ class GenerationPipeline:
         self.stats["by_difficulty"][diff.value]["count"] += count
         self.stats["by_difficulty"][diff.value]["generation_time"] += time_taken
         self.logger.info("Generated %d examples in %.2fs", count, time_taken)
-    
+
     def _finalize_statistics(self, examples, start_time):
         """Finalize statistics after generation."""
-        # Calculate generation time and rate
         generation_time = time.time() - start_time
         self.stats["generation_time"] = generation_time
         self.stats["examples_count"] = len(examples)
-        
         if generation_time > 0:
             self.stats["examples_per_second"] = len(examples) / generation_time
-        
-        # Calculate complexity averages
         if len(examples) > 0:
             total_query_length = sum(len(example.get("query", "")) for example in examples)
             self.stats["complexity"]["avg_query_length"] = total_query_length / len(examples)
-        
-        self.logger.info("Generation complete: %d examples in %.2fs", 
-                        self.stats["examples_generated"], 
-                        self.stats["generation_time"])
-    
-    def _generate_examples_sequentially(
-        self, 
-        query_type: QueryType, 
-        difficulty: DifficultyLevel,
-        framework_type: Any
-    ) -> List[Example]:
+        self.logger.info("Generation complete: %d examples in %.2fs", len(examples), self.stats["generation_time"])
+
+    def _generate_examples_sequentially(self, query_type: QueryType, difficulty: DifficultyLevel, framework_type: Any) -> List[Example]:
         """Generate examples sequentially for a query type and difficulty level.
         
         Args:
@@ -262,25 +232,17 @@ class GenerationPipeline:
             List[Example]: Generated examples
         """
         batch = []
-        
-        for _ in range(self.config.num_examples_per_category):
+        for _ in range(getattr(self.config, 'num_examples_per_category', 1)):
             try:
-                # Generate a single example
-                example = self._generate_single_example(query_type, difficulty, framework_type)
+                example = self._generate_single_example(query_type, difficulty)
                 if example:
                     batch.append(example)
                     self._update_example_stats(example)
             except Exception as e:
                 self._log_error("sequential generation", query_type, difficulty, e)
-        
         return batch
-    
-    def _generate_examples_in_parallel(
-        self, 
-        query_type: QueryType, 
-        difficulty: DifficultyLevel,
-        framework_type: Any
-    ) -> List[Example]:
+
+    def _generate_examples_in_parallel(self, query_type: QueryType, difficulty: DifficultyLevel, framework_type: Any) -> List[Example]:
         """Generate examples in parallel for a query type and difficulty level.
         
         Args:
@@ -292,16 +254,12 @@ class GenerationPipeline:
             List[Example]: Generated examples
         """
         batch = []
-        max_workers = min(self.config.num_examples_per_category, os.cpu_count() or 4)
-        
+        max_workers = min(getattr(self.config, 'num_examples_per_category', 1), os.cpu_count() or 4)
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Create futures for all examples to be generated
             futures = [
-                executor.submit(self._generate_single_example, query_type, difficulty, framework_type)
-                for _ in range(self.config.num_examples_per_category)
+                executor.submit(self._generate_single_example, query_type, difficulty)
+                for _ in range(getattr(self.config, 'num_examples_per_category', 1))
             ]
-            
-            # Process completed futures
             for future in concurrent.futures.as_completed(futures):
                 try:
                     example = future.result()
@@ -310,34 +268,27 @@ class GenerationPipeline:
                         self._update_example_stats(example)
                 except Exception as e:
                     self._log_error("parallel generation", query_type, difficulty, e)
-        
         return batch
-    
+
     def _update_example_stats(self, example):
         """Update statistics based on an example."""
         if example is None:
             return
-
-        # Get domain (use default if not available)
         domain = "unknown"
-        if "metadata" in example and "components" in example["metadata"]:
+        if isinstance(example, dict) and "metadata" in example and "components" in example["metadata"]:
             components = example["metadata"]["components"]
             if "domain" in components:
                 domain = components["domain"]
-        
-        # Update complexity stats
         query_length = len(example.get("query", ""))
         self.stats["complexity"]["min_query_length"] = min(
-            self.stats["complexity"]["min_query_length"] or query_length,
+            self.stats["complexity"].get("min_query_length") or query_length,
             query_length
         )
         self.stats["complexity"]["max_query_length"] = max(
-            self.stats["complexity"]["max_query_length"] or 0,
+            self.stats["complexity"].get("max_query_length") or 0,
             query_length
         )
         self.stats["complexity"]["total_query_length"] += query_length
-        
-        # Update domain stats
         if domain not in self.stats["domains"]:
             self.stats["domains"][domain] = 0
         self.stats["domains"][domain] += 1
@@ -352,19 +303,14 @@ class GenerationPipeline:
             e: The exception that occurred
         """
         error_type = type(e).__name__
+        if "errors" not in self.stats:
+            self.stats["errors"] = {}
         if error_type not in self.stats["errors"]:
             self.stats["errors"][error_type] = 0
         self.stats["errors"][error_type] += 1
-        
-        self.logger.warning("Error in %s for %s at %s: %s", 
-                           context, qt.value, diff.value, e, exc_info=True)
-    
-    def _generate_single_example(
-        self,
-        query_type: QueryType,
-        difficulty: DifficultyLevel,
-        domain: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
+        self.logger.warning("Error in %s for %s at %s: %s", context, qt.value, diff.value, e, exc_info=True)
+
+    def _generate_single_example(self, query_type: QueryType, difficulty: DifficultyLevel, domain: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Generate a single example with all necessary components.
         
         Args:
@@ -376,41 +322,27 @@ class GenerationPipeline:
             Dict[str, Any]: Generated example or None if generation failed
         """
         try:
-            # Select an appropriate framework
             framework = self.framework_registry.select_framework(query_type)
             self.logger.debug(
                 "Selected framework %s for query type %s",
                 framework.value, query_type.value
             )
-            
-            # Generate components
-            components = self.component_generator.generate_components(
-                query_type, difficulty, domain)
-            
-            # If components couldn't be generated, skip this example
+            components = self.component_generator.generate_components(query_type, difficulty, domain)
             if not components:
                 return None
-            
-            # Create query info
             query_info = QueryInfo(
                 query_type=query_type,
                 difficulty=difficulty,
                 components=components
             )
-            
-            # Add framework to the query info
             query_info.framework = framework
-            
-            # Generate internal reasoning
+            # Generate internal reasoning and external response
             internal_reasoning = self.response_generator.generate_internal_reasoning(query_info) if self.response_generator else ""
-            
-            # Generate external response
             external_response = self.response_generator.generate_external_response(query_info, internal_reasoning) if self.response_generator else ""
-            
             # Construct the example
             example = {
                 "id": str(uuid.uuid4()),
-                "query": query_info.query,
+                "query": getattr(query_info, 'query', ''),
                 "internal_reasoning": internal_reasoning,
                 "external_response": external_response,
                 "metadata": {
@@ -420,32 +352,23 @@ class GenerationPipeline:
                     "framework": framework.value
                 }
             }
-            
-            # Update statistics
-            self._update_example_stats(example)
-            
             return example
         except Exception as e:
             self._log_error("example generation", query_type, difficulty, e)
             return None
-    
+
     def _select_domain(self) -> str:
         """Select a domain based on configuration.
         
         Returns:
             str: Selected domain
         """
-        available_domains = list(self.config.technology_mapping.keys())
-        
-        # Filter available domains to only include selected ones if specified
+        available_domains = list(getattr(self.config, 'technology_mapping', {}).keys())
         selected = [d for d in available_domains if d in getattr(self.config, 'selected_domains', [])]
-        
-        # If no valid domains were selected or selected_domains wasn't specified, use all domains
         if not selected:
             selected = available_domains
-        
-        return random.choice(selected)
-    
+        return random.choice(selected) if selected else "unknown"
+
     def _generate_dialogue_turns(self, query_info: QueryInfo) -> List[Dict[str, str]]:
         """Generate dialogue turns for multi-turn conversations.
         
@@ -492,46 +415,21 @@ class GenerationPipeline:
                 "assistant": f"What are your main criteria for choosing between {option_a} and {option_b}?",
                 "user": "Long-term maintainability is our primary concern."
             })
-        elif qt == QueryType.IMPLEMENTATION:
-            feature = getattr(comp, 'feature_to_implement', 'feature')
-            language = getattr(comp, 'language', 'preferred language')
-            turns.append({
-                "assistant": f"Would you like me to implement {feature} using {language} or do you have another language preference?",
-                "user": f"Please use {language}, as that's what our project is written in."
-            })
-        elif qt == QueryType.CODE_REVIEW:
-            code_issue = getattr(comp, 'code_issue', 'issue')
-            turns.append({
-                "assistant": f"Besides addressing the {code_issue}, are there any specific aspects of the code you'd like me to focus on?",
-                "user": "Please also check for potential security vulnerabilities."
-            })
-        elif qt == QueryType.ARCHITECTURE_DESIGN:
-            system = getattr(comp, 'system_component', 'system')
-            turns.append({
-                "assistant": f"What are the scalability requirements for the {system}?",
-                "user": "We expect to handle about 10,000 simultaneous users initially."
-            })
-        elif qt == QueryType.TESTING:
-            feature = getattr(comp, 'feature_to_test', 'feature')
-            turns.append({
-                "assistant": f"What type of tests would you like me to focus on for the {feature}?",
-                "user": "We need both unit tests and integration tests."
-            })
-        elif qt == QueryType.REFACTORING:
-            code_area = getattr(comp, 'refactoring_target', 'code')
-            turns.append({
-                "assistant": f"What are your main goals for refactoring the {code_area}?",
-                "user": "We want to improve maintainability and reduce technical debt."
-            })
+        # elif qt == QueryType.IMPLEMENTATION:
+        #     pass
+        # elif qt == QueryType.CODE_REVIEW:
+        #     pass
+        # elif qt == QueryType.ARCHITECTURE_DESIGN:
+        #     pass
+        # elif qt == QueryType.TESTING:
+        #     pass
+        # elif qt == QueryType.REFACTORING:
+        #     pass
         else:
-            turns.append({
-                "assistant": "Can you provide more context about your use case?",
-                "user": "I'm working on a small project with tight deadlines."
-            })
-        
+            pass
         return turns
     
-    def _post_process_examples(self, examples: List[Example]) -> List[Example]:
+    def _post_process_examples(self, examples: List[Any]) -> List[Any]:
         """Apply post-processing to generated examples.
         
         Args:
@@ -540,34 +438,27 @@ class GenerationPipeline:
         Returns:
             List[Example]: Post-processed examples
         """
-        # Remove duplicate examples based on query and response
         seen = set()
         unique = []
-        
         for ex in examples:
-            # Create a unique key for this example
-            key = (ex.query_info.query, ex.external_response)
-            
+            key = (ex.get("query", None), ex.get("external_response", None))
             if key not in seen:
                 seen.add(key)
                 unique.append(ex)
-        
         self.logger.info("Post-processing: reduced from %d to %d examples (removed %d duplicates)",
                         len(examples), len(unique), len(examples) - len(unique))
-          # Apply additional post-processing steps if configured
         min_query_length = getattr(self.config, 'minimum_query_length', 0)
         if min_query_length > 0:
-            unique = [ex for ex in unique if len(ex.query_info.query) >= min_query_length]
+            unique = [ex for ex in unique if len(ex.get("query", "")) >= min_query_length]
             self.logger.info("Post-processing: filtered to %d examples after minimum query length check",
                             len(unique))
-        
         min_response_length = getattr(self.config, 'minimum_response_length', 0)
         if min_response_length > 0:
-            unique = [ex for ex in unique if len(ex.external_response) >= min_response_length]
+            unique = [ex for ex in unique if len(ex.get("external_response", "")) >= min_response_length]
             self.logger.info("Post-processing: filtered to %d examples after minimum response length check",
                             len(unique))
         return unique
-    
+
     def get_statistics(self) -> Dict[str, Any]:
         """Get generation statistics.
         

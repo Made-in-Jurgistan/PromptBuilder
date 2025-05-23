@@ -20,7 +20,7 @@ from promptbuilder.core.query_components import QueryComponents, QueryType, Diff
 class ComponentGenerator:
     """Generates query components for different query types and difficulty levels."""
 
-    def __init__(self, technology_mapping: Dict[str, Any] = None):
+    def __init__(self, technology_mapping: Optional[Dict[str, Any]] = None):
         """Initialize the component generator.
 
         Args:
@@ -49,7 +49,7 @@ class ComponentGenerator:
     ) -> QueryComponents:
         """Generate query components for the given parameters."""
         self.logger.debug("Generating components for %s, difficulty %s, domain %s",
-                         query_type.value, difficulty.value, domain)
+                          query_type.value, difficulty.value, domain)
         components = QueryComponents()
 
         # Set domain-specific components
@@ -74,9 +74,9 @@ class ComponentGenerator:
             # Default components for other query types
             components.error_message = "sample error"
             components.technology_context = "example context"
-            
+
         return components
-    
+
     def _add_debugging_components(
         self,
         components: QueryComponents,
@@ -87,7 +87,7 @@ class ComponentGenerator:
         components.error_message = "TypeError"
         components.stack_trace = "Error at line 42"
         components.debug_code_snippet = "def sample():\n    return 1/0  # Error"
-    
+
     def _add_optimization_components(
         self,
         components: QueryComponents,

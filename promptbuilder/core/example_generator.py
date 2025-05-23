@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Set, Union, Tuple
 
-from promptbuilder.core.query_components import Example
+from promptbuilder.core.query_components import Example, QueryType, DifficultyLevel
 from promptbuilder.core.generation_pipeline import GenerationPipeline
 from promptbuilder.config import Config
 from promptbuilder.core.framework_registry import FrameworkRegistry
@@ -47,7 +47,12 @@ def build_generator(config_path: Optional[str] = None) -> 'ExampleGenerator':
         ValueError: If config has invalid values
     """
     try:
-        config = Config.load_from_file(config_path) if config_path else Config()
+        if config_path:
+            # Use the correct config loading method
+            from promptbuilder.config import load_config
+            config = load_config(config_path)
+        else:
+            config = Config()
         return ExampleGenerator(config)
     except FileNotFoundError as e:
         logging.error("Config file not found: %s", e)
@@ -114,6 +119,8 @@ def main():
                 supported_languages=generator.supported_languages,
                 supported_technologies=generator.supported_technologies
             )
+            # Convert dicts to Example objects if needed
+            examples = generator._ensure_examples_are_objects(examples)
             valid_examples, metrics = validator.validate_examples(examples)
             logger.info("Validation results: %s", metrics)
             examples = valid_examples
@@ -125,21 +132,23 @@ def main():
         # Save examples in the specified format
         if args.format == 'json':
             with output_path.open('w', encoding='utf-8') as f:
-                json.dump([ex.to_dict() for ex in examples], f, indent=2, ensure_ascii=False)
+                json.dump([ex if isinstance(ex, dict) else ex.to_dict() for ex in examples], f, indent=2, ensure_ascii=False)
         elif args.format == 'jsonl':
             with output_path.open('w', encoding='utf-8') as f:
                 for ex in examples:
-                    f.write(json.dumps(ex.to_dict(), ensure_ascii=False) + '\n')
+                    f.write(json.dumps(ex if isinstance(ex, dict) else ex.to_dict(), ensure_ascii=False) + '\n')
         elif args.format == 'csv':
             try:
                 import csv
+                # Ensure all are Example objects for CSV
+                examples_obj = generator._ensure_examples_are_objects(examples)
                 with output_path.open('w', newline='', encoding='utf-8') as f:
-                    if examples:
+                    if examples_obj:
                         # Get field names from the first example
-                        fieldnames = examples[0].to_dict().keys()
+                        fieldnames = examples_obj[0].to_dict().keys()
                         writer = csv.DictWriter(f, fieldnames=fieldnames)
                         writer.writeheader()
-                        for ex in examples:
+                        for ex in examples_obj:
                             writer.writerow(ex.to_dict())
             except ImportError:
                 logger.error("CSV format requires csv module, which is not available")
@@ -217,18 +226,23 @@ class ExampleGenerator:
             Set[str]: Set of supported programming languages
         """
         languages = set()
-        
-        # Use a default set of languages if no config is provided
         default_languages = {"python", "javascript", "typescript", "r"}
-        
-        if hasattr(self.config, 'technology_mapping'):
-            # Use the technology mapping from the config if available
-            for domain_data in self.config.technology_mapping.values():
-                for tech_data in domain_data.values():
-                    if isinstance(tech_data, dict) and 'languages' in tech_data:
-                        languages.update(tech_data['languages'])
-        
-        # Return default languages if none found
+        config = self.config
+        # Support both dict and object config
+        tech_mapping = getattr(config, 'technology_mapping', None)
+        if tech_mapping is None and isinstance(config, dict):
+            tech_mapping = config.get('technology_mapping', None)
+        if tech_mapping:
+            for domain_data in tech_mapping.values():
+                # domain_data can be dict or list
+                if isinstance(domain_data, dict):
+                    langs = domain_data.get('languages', [])
+                    if isinstance(langs, list):
+                        for lang in langs:
+                            if isinstance(lang, dict) and 'name' in lang:
+                                languages.add(lang['name'].lower())
+                            elif isinstance(lang, str):
+                                languages.add(lang.lower())
         return languages or default_languages
 
     def _extract_supported_technologies(self) -> Set[str]:
@@ -238,20 +252,25 @@ class ExampleGenerator:
             Set[str]: Set of supported technologies
         """
         technologies = set()
-        
-        # Use a default set of technologies if no config is provided
         default_technologies = {
-            "matplotlib", "numpy", "pandas", "pytorch", "scikit-learn", "tensorflow",  # Data science
-            "react", "vue", "angular", "next.js",  # Web frameworks
-            "express", "flask", "django"  # Backend frameworks
+            "matplotlib", "numpy", "pandas", "pytorch", "scikit-learn", "tensorflow",
+            "react", "vue", "angular", "next.js",
+            "express", "flask", "django"
         }
-        
-        if hasattr(self.config, 'technology_mapping'):
-            # Use the technology mapping from the config if available
-            for domain_data in self.config.technology_mapping.values():
-                technologies.update(domain_data.keys())
-        
-        # Return default technologies if none found
+        config = self.config
+        tech_mapping = getattr(config, 'technology_mapping', None)
+        if tech_mapping is None and isinstance(config, dict):
+            tech_mapping = config.get('technology_mapping', None)
+        if tech_mapping:
+            for domain_data in tech_mapping.values():
+                if isinstance(domain_data, dict):
+                    techs = domain_data.get('technologies', [])
+                    if isinstance(techs, list):
+                        for tech in techs:
+                            if isinstance(tech, dict) and 'name' in tech:
+                                technologies.add(tech['name'].lower())
+                            elif isinstance(tech, str):
+                                technologies.add(tech.lower())
         return technologies or default_technologies
 
     def generate_examples(
@@ -321,99 +340,94 @@ class ExampleGenerator:
         self.logger.debug("Retrieved statistics: %s", stats)
         return stats
     
-    def export_examples(self, examples: List[Example], output_path: str, 
-                        format: str = 'json') -> None:
-        """Export examples to a file in the specified format.
-        
-        Args:
-            examples: List of examples to export
-            output_path: Path to output file
-            format: Export format ('json', 'jsonl', or 'csv')
-            
-        Raises:
-            ValueError: If format is not supported
-            IOError: If file cannot be written
-        """
+    def export_examples(self, examples: List[Any], output_path: str, format: str = 'json') -> None:
+        """Export examples to a file in the specified format."""
         if not examples:
             self.logger.warning("No examples to export")
             return
-        
-        self.logger.info("Exporting %d examples to %s in %s format", 
-                        len(examples), output_path, format)
-        
-        # Create output directory if it doesn't exist
+        self.logger.info("Exporting %d examples to %s in %s format", len(examples), output_path, format)
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        
         try:
             if format == 'json':
                 with path.open('w', encoding='utf-8') as f:
-                    json.dump([ex.to_dict() for ex in examples], f, indent=2, ensure_ascii=False)
+                    json.dump([ex.to_dict() if hasattr(ex, 'to_dict') else ex for ex in examples], f, indent=2, ensure_ascii=False)
             elif format == 'jsonl':
                 with path.open('w', encoding='utf-8') as f:
                     for ex in examples:
-                        f.write(json.dumps(ex.to_dict(), ensure_ascii=False) + '\n')
+                        f.write(json.dumps(ex.to_dict() if hasattr(ex, 'to_dict') else ex, ensure_ascii=False) + '\n')
             elif format == 'csv':
                 import csv
+                # Ensure all are Example objects for CSV
+                examples_obj = self._ensure_examples_are_objects(examples)
                 with path.open('w', newline='', encoding='utf-8') as f:
-                    fieldnames = examples[0].to_dict().keys()
+                    fieldnames = examples_obj[0].to_dict().keys()
                     writer = csv.DictWriter(f, fieldnames=fieldnames)
                     writer.writeheader()
-                    for ex in examples:
+                    for ex in examples_obj:
                         writer.writerow(ex.to_dict())
             else:
                 raise ValueError(f"Unsupported export format: {format}")
-            
             self.logger.info("Successfully exported examples to %s", output_path)
         except Exception as e:
             self.logger.error("Failed to export examples: %s", e, exc_info=True)
             raise
 
-    def filter_examples(self, examples: List[Example], **filters) -> List[Example]:
-        """Filter examples based on various criteria.
-        
-        Args:
-            examples: List of examples to filter
-            **filters: Keyword arguments for filtering (e.g., difficulty='ADVANCED')
-            
-        Returns:
-            List[Example]: Filtered examples
-        """
-        self.logger.info("Filtering %d examples with criteria: %s", 
-                        len(examples), filters)
+    def filter_examples(self, examples: List[Any], **filters) -> List[Any]:
+        """Filter examples based on various criteria."""
+        self.logger.info("Filtering %d examples with criteria: %s", len(examples), filters)
+        def get_attr(ex, attr):
+            # Try nested access for Example/query_info/components, else dict
+            if hasattr(ex, 'query_info'):
+                # Example object
+                if hasattr(ex.query_info, 'components'):
+                    comp = ex.query_info.components
+                    if hasattr(comp, attr):
+                        return getattr(comp, attr)
+                if hasattr(ex.query_info, attr):
+                    return getattr(ex.query_info, attr)
+            if hasattr(ex, attr):
+                return getattr(ex, attr)
+            if isinstance(ex, dict):
+                if attr in ex:
+                    return ex[attr]
+                # Try nested dicts
+                if 'query_info' in ex and isinstance(ex['query_info'], dict):
+                    if attr in ex['query_info']:
+                        return ex['query_info'][attr]
+                    if 'components' in ex['query_info'] and isinstance(ex['query_info']['components'], dict):
+                        if attr in ex['query_info']['components']:
+                            return ex['query_info']['components'][attr]
+            return None
         
         filtered = examples
-        
         for key, value in filters.items():
             if not value:
                 continue
-                
             if key == 'query_type':
-                filtered = [ex for ex in filtered if ex.query_type == value]
+                filtered = [ex for ex in filtered if get_attr(ex, 'query_type') == value]
             elif key == 'difficulty':
-                filtered = [ex for ex in filtered if ex.difficulty == value]
+                filtered = [ex for ex in filtered if get_attr(ex, 'difficulty') == value]
             elif key == 'domain':
-                filtered = [ex for ex in filtered if ex.domain == value]
+                filtered = [ex for ex in filtered if get_attr(ex, 'domain') == value]
             elif key == 'language':
-                filtered = [ex for ex in filtered if ex.language and ex.language.lower() == value.lower()]
+                filtered = [ex for ex in filtered if (get_attr(ex, 'language') or '').lower() == value.lower()]
             elif key == 'technology':
-                filtered = [ex for ex in filtered if ex.technology and ex.technology.lower() == value.lower()]
+                filtered = [ex for ex in filtered if (get_attr(ex, 'technology') or '').lower() == value.lower()]
             elif key == 'min_token_count':
-                filtered = [ex for ex in filtered if ex.token_count >= value]
+                filtered = [ex for ex in filtered if get_attr(ex, 'token_count') is not None and get_attr(ex, 'token_count') >= value]
             elif key == 'max_token_count':
-                filtered = [ex for ex in filtered if ex.token_count <= value]
+                filtered = [ex for ex in filtered if get_attr(ex, 'token_count') is not None and get_attr(ex, 'token_count') <= value]
             elif key == 'has_code_snippet':
                 has_code = bool(value)
-                filtered = [ex for ex in filtered if bool(ex.code_snippet) == has_code]
+                filtered = [ex for ex in filtered if bool(get_attr(ex, 'code_snippet')) == has_code]
             elif key == 'framework':
-                filtered = [ex for ex in filtered if ex.framework and ex.framework.lower() == value.lower()]
+                filtered = [ex for ex in filtered if (get_attr(ex, 'framework') or '').lower() == value.lower()]
             elif key == 'expertise_level':
-                filtered = [ex for ex in filtered if ex.expertise_level == value]
+                filtered = [ex for ex in filtered if get_attr(ex, 'expertise_level') == value]
             elif key == 'custom':
-                # Custom filter function
                 if callable(value):
                     filtered = [ex for ex in filtered if value(ex)]
-                    
         self.logger.info("Filtered to %d examples", len(filtered))
         return filtered
 
@@ -496,3 +510,13 @@ class ExampleGenerator:
             template += "// Simple implementation\n"
         
         return template
+
+    def _ensure_examples_are_objects(self, examples: List[Any]) -> List[Example]:
+        """Ensure all examples are Example objects."""
+        if not examples:
+            return []
+        if isinstance(examples[0], Example):
+            return examples
+        elif isinstance(examples[0], dict):
+            return [Example.from_dict(ex) if not isinstance(ex, Example) else ex for ex in examples]
+        return examples

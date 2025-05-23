@@ -1,21 +1,21 @@
 """
-Expanded Standardized Domain Module Template for PromptBuilder.
+Standardized Domain Module Template for PromptBuilder.
 
-This module defines the enhanced structure and requirements for domain knowledge mapping
+This module defines the structure and requirements for domain knowledge mapping
 within the PromptBuilder system. All domain modules MUST follow this template precisely 
-to ensure standardization while providing more comprehensive coverage of each domain area.
+to ensure standardization while providing comprehensive coverage of each domain area.
 
 REQUIREMENTS:
 1. All sections are mandatory and must appear in the exact order specified
 2. Section names must be exactly as specified (no variations)
-3. Each section must contain EXACTLY the number of entries specified (increased for comprehensiveness)
+3. Each section must contain EXACTLY the number of entries specified
 4. All fields marked as required must be present with appropriate values
 5. Naming conventions and formatting must be consistent across all domains
-6. Content quality standards must be maintained throughout
+6. Professional quality standards must be maintained throughout
 7. Descriptions must be complete sentences with proper punctuation
 8. All lengths and counts must be strictly adhered to
 
-This template serves as the definitive enhanced standard for all domain modules.
+This template serves as the definitive standard for all domain modules.
 
 Author: Made in Jurgistan
 Version: 2.0.0
@@ -156,3 +156,19 @@ def example_function():
             # REQUIRED: Include exactly 10 resource entries with the same structure, with at least 2 of each type
         ]
     }
+
+"""
+domain_template.py
+
+This template defines the strict separation of concerns for all domain modules in PromptBuilder:
+- <domain>_domain.py: Contains only static metadata, mappings, and configuration (languages, frameworks, technologies, concepts, best practices, common problems, etc.).
+- <domain>_examples.py: Contains only code examples, each as a dict with task, description, language, code, and explanation fields.
+
+No code examples or executable logic should appear in the domain metadata/configuration file. No metadata or mappings should appear in the code examples file.
+
+All domain modules must follow this structure for maintainability and clarity.
+"""
+
+# Example usage for future domains:
+# from .ai_ml_domain import get_ai_ml_domain
+# from .ai_ml_examples import ai_ml_code_examples
