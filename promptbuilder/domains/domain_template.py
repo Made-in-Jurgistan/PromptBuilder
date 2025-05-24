@@ -26,10 +26,10 @@ from typing import Dict, Any, List
 
 def get_domain_mapping() -> Dict[str, Any]:
     """
-    Get domain technology mapping with enhanced comprehensiveness.
+    Get domain technology mapping.
     
     Returns:
-        Dict[str, Any]: Domain mapping with standardized comprehensive information
+        Dict[str, Any]: Domain mapping with standardized information
     """
     return {
         # DOMAIN METADATA (REQUIRED)
